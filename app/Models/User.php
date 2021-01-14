@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Notifications\Notifiable;
+use Cartalyst\Stripe\Laravel\Facades\Stripe;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Cartalyst\Stripe\Exception\NotFoundException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
@@ -20,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'stripe_customer',
     ];
 
     /**
@@ -40,4 +43,49 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    public static function boot()
+    {
+        parent::boot();
+
+        self::creating(function ($model) {
+            // When user is being CREATED and sripe_customer is empty create the customer in stripe and add to user
+            if (!$model->stripe_customer) {
+                $customer = Stripe::customers()->create([
+                    'email' => $model->email,
+                    'name' => $model->name,
+                ]);
+                $stripe_customer = $customer['id'];
+                $model->stripe_customer = $stripe_customer;
+            }
+        });
+
+        self::updating(function ($model) {
+            // When user is being UPDATED and sripe_customer is empty create the customer in stripe and add to user
+            if (!$model->stripe_customer) {
+                $customer = Stripe::customers()->create([
+                    'email' => $model->email,
+                    'name' => $model->name,
+                ]);
+                $stripe_customer = $customer['id'];
+                $model->stripe_customer = $stripe_customer;
+            } else {
+                // Lets update the customer in stripe with the user info found in the database
+                try {
+                    Stripe::customers()->update($model->stripe_customer, [
+                        'email' => $model->email,
+                        'name' => $model->name,
+                    ]);
+                } catch (NotFoundException $e) {
+                    // If the user was not found for some reason, create it
+                    $customer = Stripe::customers()->create([
+                        'email' => $model->email,
+                        'name' => $model->name,
+                    ]);
+                    $stripe_customer = $customer['id'];
+                    $model->stripe_customer = $stripe_customer;
+                }
+            }
+        });
+    }
 }
