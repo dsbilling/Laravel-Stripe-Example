@@ -17,3 +17,20 @@ Route::get('/', [
     'as' => 'home' ,
     'uses' => 'HomeController@index'
 ]);
+
+Route::get('/card', [
+    'as' => 'card' ,
+    'uses' => 'CardController@index'
+]);
+Route::get('/card/create', [
+    'as' => 'card-create' ,
+    'uses' => 'CardController@create'
+]);
+Route::post('/card/store', [
+    'as' => 'card-store' ,
+    'uses' => 'CardController@store'
+]);
+Route::get('/card/{id}/destroy', [
+    'as' => 'card-destroy' ,
+    'uses' => 'CardController@destroy'
+]);
